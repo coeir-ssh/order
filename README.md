@@ -6,14 +6,16 @@
 
 현 발주 시트(Google Sheets)의 구조·로직·문제점·개선 로드맵을 시각화한 리포트.
 
-👉 **[분석리포트.html](./분석리포트.html)** (브라우저로 열기)
+👉 **[report.html](./report.html)** (브라우저로 열기)
+
+🌐 공개 링크: https://coeir-ssh.github.io/order/report.html
 
 ## 📁 구성
 
 ```
 .
-├── README.md          # 이 문서
-└── 분석리포트.html     # 시트 분석 시각화 리포트
+├── README.md      # 이 문서
+└── report.html    # 시트 분석 시각화 리포트
 ```
 
 ## 📊 분석 요약
