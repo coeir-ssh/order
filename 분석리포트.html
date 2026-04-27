@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>코에르 발주 시트 분석 리포트</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif; }
+  .formula { font-family: 'JetBrains Mono', 'Consolas', monospace; }
+  .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+  .card-shadow { box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06); }
+  .arrow { position: relative; }
+  .arrow::after {
+    content: '→'; position: absolute; right: -28px; top: 50%; transform: translateY(-50%);
+    font-size: 24px; color: #6366f1; font-weight: bold;
+  }
+  .severity-high { background: linear-gradient(90deg, #fee2e2 0%, #fecaca 100%); border-left: 4px solid #dc2626; }
+  .severity-mid  { background: linear-gradient(90deg, #fef3c7 0%, #fde68a 100%); border-left: 4px solid #d97706; }
+  .severity-low  { background: linear-gradient(90deg, #dbeafe 0%, #bfdbfe 100%); border-left: 4px solid #2563eb; }
+  .step-num {
+    width: 40px; height: 40px; border-radius: 50%; display: inline-flex;
+    align-items: center; justify-content: center; font-weight: bold; color: white;
+  }
+  .pulse-dot {
+    width: 10px; height: 10px; border-radius: 50%; background: #ef4444;
+    display: inline-block; animation: pulse 2s infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+</style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+
+<!-- HEADER -->
+<header class="gradient-bg text-white py-12 px-6">
+  <div class="max-w-6xl mx-auto">
+    <div class="flex items-center gap-3 mb-2">
+      <span class="pulse-dot"></span>
+      <span class="text-sm uppercase tracking-widest opacity-80">Order Sheet Analysis</span>
+    </div>
+    <h1 class="text-4xl md:text-5xl font-black mb-3">코에르 발주 시트 분석 리포트</h1>
+    <p class="text-lg opacity-90">현 발주 시스템의 구조·로직·문제점·개선안</p>
+    <div class="mt-6 flex flex-wrap gap-2">
+      <span class="px-3 py-1 bg-white/20 rounded-full text-sm">Google Sheets 기반</span>
+      <span class="px-3 py-1 bg-white/20 rounded-full text-sm">8개 탭</span>
+      <span class="px-3 py-1 bg-white/20 rounded-full text-sm">983행 SKU</span>
+      <span class="px-3 py-1 bg-white/20 rounded-full text-sm">2026.04.26 분석</span>
+    </div>
+  </div>
+</header>
+
+<!-- KPI 요약 -->
+<section class="max-w-6xl mx-auto px-6 -mt-8">
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+    <div class="bg-white rounded-xl p-5 card-shadow">
+      <div class="text-3xl font-black text-indigo-600">8</div>
+      <div class="text-sm text-slate-500 mt-1">시트 탭 수</div>
+    </div>
+    <div class="bg-white rounded-xl p-5 card-shadow">
+      <div class="text-3xl font-black text-emerald-600">7</div>
+      <div class="text-sm text-slate-500 mt-1">핵심 산식</div>
+    </div>
+    <div class="bg-white rounded-xl p-5 card-shadow">
+      <div class="text-3xl font-black text-amber-600">9</div>
+      <div class="text-sm text-slate-500 mt-1">발견된 이슈</div>
+    </div>
+    <div class="bg-white rounded-xl p-5 card-shadow">
+      <div class="text-3xl font-black text-rose-600">2단계</div>
+      <div class="text-sm text-slate-500 mt-1">개선 계획</div>
+    </div>
+  </div>
+</section>
+
+<!-- 1. 시트 구조 -->
+<section class="max-w-6xl mx-auto px-6 py-12">
+  <h2 class="text-2xl font-bold mb-2">① 시트 구조 한눈에</h2>
+  <p class="text-slate-500 mb-6">총 8개 탭이 입력 → 계산 → 표시 3단계 파이프라인으로 연결되어 있음</p>
+
+  <div class="bg-white rounded-2xl p-6 card-shadow">
+    <div class="grid md:grid-cols-3 gap-8">
+      <!-- 입력 -->
+      <div>
+        <div class="flex items-center gap-2 mb-4">
+          <span class="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold">📥</span>
+          <h3 class="font-bold text-lg">입력 데이터</h3>
+        </div>
+        <ul class="space-y-2 text-sm">
+          <li class="bg-blue-50 px-3 py-2 rounded-lg">
+            <strong>데이터</strong> · 상품/옵션/미니멈/생산기간/MOQ
+          </li>
+          <li class="bg-blue-50 px-3 py-2 rounded-lg">
+            <strong>휴무일</strong> · 공장 휴일(춘절 등)
+          </li>
+          <li class="bg-blue-50 px-3 py-2 rounded-lg">
+            <strong>발주상태</strong> · 진행 중인 발주 이력
+          </li>
+          <li class="bg-blue-50 px-3 py-2 rounded-lg">
+            <strong>AD/CP/LP/깔량 raw</strong> · 채널별 일자 판매
+          </li>
+        </ul>
+      </div>
+      <!-- 계산 -->
+      <div>
+        <div class="flex items-center gap-2 mb-4">
+          <span class="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold">⚙️</span>
+          <h3 class="font-bold text-lg">계산 엔진</h3>
+        </div>
+        <div class="bg-gradient-to-br from-indigo-50 to-purple-50 p-4 rounded-xl border-2 border-indigo-200">
+          <div class="font-bold text-indigo-700">발주량_계산 탭</div>
+          <div class="text-xs text-slate-600 mt-2">P · 1일 평균 판매량</div>
+          <div class="text-xs text-slate-600">R · 발주 1차 산출값</div>
+          <div class="text-xs text-slate-600">S · 미니멈 반영</div>
+          <div class="text-xs text-slate-600">U · 판매 가능일수</div>
+          <div class="text-xs text-slate-600">V · D-day</div>
+          <div class="text-xs text-slate-600">Y · 실제 발주 수량</div>
+          <div class="text-xs text-slate-600">AA · 박스환산 발주량</div>
+        </div>
+      </div>
+      <!-- 표시 -->
+      <div>
+        <div class="flex items-center gap-2 mb-4">
+          <span class="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">📊</span>
+          <h3 class="font-bold text-lg">출력/액션</h3>
+        </div>
+        <div class="bg-emerald-50 p-4 rounded-xl border-2 border-emerald-200">
+          <div class="font-bold text-emerald-700">메인 탭 (대시보드)</div>
+          <div class="text-xs text-slate-600 mt-2">G · 발주 필요수량</div>
+          <div class="text-xs text-slate-600">M · D-day / 발주중</div>
+          <div class="text-xs text-slate-600">U · 선택 체크박스 ✓</div>
+          <div class="text-xs text-slate-600">W~AD · 선택 항목 자동집계</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 2. 핵심 수식 -->
+<section class="max-w-6xl mx-auto px-6 py-6">
+  <h2 class="text-2xl font-bold mb-2">② 핵심 산식 7가지</h2>
+  <p class="text-slate-500 mb-6">발주량_계산 탭에 들어있는 모든 계산식</p>
+
+  <div class="grid md:grid-cols-2 gap-4">
+
+    <div class="bg-white rounded-xl p-5 card-shadow">
+      <div class="flex items-center justify-between mb-2">
+        <span class="font-bold text-indigo-600">P · 1일 평균 판매량</span>
+        <span class="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded">전체 마켓</span>
+      </div>
+      <p class="text-sm text-slate-600">최근 1개월 raw 판매 합산 / 30일</p>
+    </div>
+
+    <div class="bg-white rounded-xl p-5 card-shadow">
+      <div class="flex items-center justify-between mb-2">
+        <span class="font-bold text-indigo-600">R · 발주 1차 산출값</span>
+        <span class="text-xs bg-rose-100 text-rose-700 px-2 py-1 rounded">⭐핵심</span>
+      </div>
+      <code class="formula text-xs bg-slate-100 p-2 rounded block">MAX(0, ROUNDUP((60 + 생산기간) × 1일평균))</code>
+      <p class="text-xs text-slate-500 mt-2">60일 안전재고 + 생산기간 동안 팔릴 양</p>
+    </div>
+
+    <div class="bg-white rounded-xl p-5 card-shadow">
+      <div class="flex items-center justify-between mb-2">
+        <span class="font-bold text-indigo-600">S · 미니멈 반영</span>
+      </div>
+      <code class="formula text-xs bg-slate-100 p-2 rounded block">MAX(미니멈 F, R)</code>
+      <p class="text-xs text-slate-500 mt-2">설정한 최소 발주 기준선과 비교</p>
+    </div>
+
+    <div class="bg-white rounded-xl p-5 card-shadow">
+      <div class="flex items-center justify-between mb-2">
+        <span class="font-bold text-indigo-600">U · 판매 가능일수</span>
+        <span class="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded">⚠️이슈</span>
+      </div>
+      <code class="formula text-xs bg-slate-100 p-2 rounded block">(창고재고 - 추가수량) / 1일평균</code>
+      <p class="text-xs text-slate-500 mt-2">쿠팡재고 미반영</p>
+    </div>
+
+    <div class="bg-white rounded-xl p-5 card-shadow">
+      <div class="flex items-center justify-between mb-2">
+        <span class="font-bold text-indigo-600">V · 발주 D-day</span>
+        <span class="text-xs bg-rose-100 text-rose-700 px-2 py-1 rounded">⭐핵심</span>
+      </div>
+      <code class="formula text-xs bg-slate-100 p-2 rounded block">판매가능일수 U − 생산기간 H</code>
+      <p class="text-xs text-slate-500 mt-2">0이 되기 전에 반드시 발주해야 함</p>
+    </div>
+
+    <div class="bg-white rounded-xl p-5 card-shadow">
+      <div class="flex items-center justify-between mb-2">
+        <span class="font-bold text-indigo-600">Y · 실제 발주 수량</span>
+      </div>
+      <code class="formula text-xs bg-slate-100 p-2 rounded block">메인 H 수기조정 ?? MAX(S − 창고재고, 0)<br>+ MOQ 미달이면 0</code>
+      <p class="text-xs text-slate-500 mt-2">수기조정값 우선, MOQ 가드 적용</p>
+    </div>
+
+    <div class="bg-white rounded-xl p-5 card-shadow md:col-span-2">
+      <div class="flex items-center justify-between mb-2">
+        <span class="font-bold text-indigo-600">AA · 박스환산 발주량</span>
+      </div>
+      <code class="formula text-xs bg-slate-100 p-2 rounded block">박스환산 Z × 박스당 수량 I</code>
+      <p class="text-xs text-slate-500 mt-2">최종 발주서에 들어가는 수량 (박스 단위)</p>
+    </div>
+  </div>
+</section>
+
+<!-- 3. 데이터 흐름 -->
+<section class="max-w-6xl mx-auto px-6 py-12">
+  <h2 class="text-2xl font-bold mb-2">③ 데이터 흐름</h2>
+  <p class="text-slate-500 mb-6">계산이 어떻게 흘러가는지 시각화</p>
+
+  <div class="bg-white rounded-2xl p-8 card-shadow overflow-x-auto">
+    <div class="flex items-center gap-12 min-w-max">
+      <div class="text-center">
+        <div class="w-32 h-32 rounded-2xl bg-blue-100 flex items-center justify-center mb-2 arrow">
+          <div>
+            <div class="text-3xl">📥</div>
+            <div class="font-bold text-sm mt-2">raw 판매</div>
+            <div class="text-xs text-slate-500">AD/CP/LP/깔량</div>
+          </div>
+        </div>
+      </div>
+      <div class="text-center">
+        <div class="w-32 h-32 rounded-2xl bg-purple-100 flex items-center justify-center mb-2 arrow">
+          <div>
+            <div class="text-3xl">📊</div>
+            <div class="font-bold text-sm mt-2">P · 1일평균</div>
+            <div class="text-xs text-slate-500">판매량</div>
+          </div>
+        </div>
+      </div>
+      <div class="text-center">
+        <div class="w-32 h-32 rounded-2xl bg-pink-100 flex items-center justify-center mb-2 arrow">
+          <div>
+            <div class="text-3xl">🧮</div>
+            <div class="font-bold text-sm mt-2">R · 1차산출</div>
+            <div class="text-xs text-slate-500">(60+H)×P</div>
+          </div>
+        </div>
+      </div>
+      <div class="text-center">
+        <div class="w-32 h-32 rounded-2xl bg-orange-100 flex items-center justify-center mb-2 arrow">
+          <div>
+            <div class="text-3xl">⚖️</div>
+            <div class="font-bold text-sm mt-2">S/Y/Z</div>
+            <div class="text-xs text-slate-500">미니멈/MOQ/박스</div>
+          </div>
+        </div>
+      </div>
+      <div class="text-center">
+        <div class="w-32 h-32 rounded-2xl bg-emerald-100 flex items-center justify-center mb-2">
+          <div>
+            <div class="text-3xl">✅</div>
+            <div class="font-bold text-sm mt-2">메인 탭</div>
+            <div class="text-xs text-slate-500">발주서</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 4. 잘된점 vs 문제점 -->
+<section class="max-w-6xl mx-auto px-6 py-6">
+  <h2 class="text-2xl font-bold mb-2">④ 합리성 평가</h2>
+  <p class="text-slate-500 mb-6">현 시스템의 강점과 약점</p>
+
+  <div class="grid md:grid-cols-2 gap-6">
+    <!-- 잘된점 -->
+    <div class="bg-emerald-50 border-2 border-emerald-200 rounded-2xl p-6">
+      <h3 class="text-lg font-bold text-emerald-700 mb-4 flex items-center gap-2">
+        <span class="text-2xl">✅</span> 잘 설계된 점
+      </h3>
+      <ul class="space-y-3 text-sm">
+        <li class="flex gap-2"><span class="text-emerald-600">▸</span><span>안전재고 공식이 표준 산식과 일치 <code class="formula text-xs bg-white px-1">(60+생산기간)×일평균</code></span></li>
+        <li class="flex gap-2"><span class="text-emerald-600">▸</span><span>MOQ·미니멈·박스단위·수기조정 모두 반영</span></li>
+        <li class="flex gap-2"><span class="text-emerald-600">▸</span><span>D-day 컬러링으로 시급도 표시</span></li>
+        <li class="flex gap-2"><span class="text-emerald-600">▸</span><span>체크박스 선택 → 우측 발주서 자동 집계</span></li>
+        <li class="flex gap-2"><span class="text-emerald-600">▸</span><span>채널별 raw 데이터 분리 보관 (AD/CP/LP/깔량)</span></li>
+      </ul>
+    </div>
+    <!-- 문제점 -->
+    <div class="bg-rose-50 border-2 border-rose-200 rounded-2xl p-6">
+      <h3 class="text-lg font-bold text-rose-700 mb-4 flex items-center gap-2">
+        <span class="text-2xl">⚠️</span> 누락·오발주의 원인
+      </h3>
+      <ul class="space-y-3 text-sm">
+        <li class="flex gap-2"><span class="text-rose-600">▸</span><span><strong>시각적 우선순위 부재</strong> — 983행에 시급 SKU가 묻힘</span></li>
+        <li class="flex gap-2"><span class="text-rose-600">▸</span><span><strong>체크박스 수동 의존</strong> — 깜빡하면 그대로 누락</span></li>
+        <li class="flex gap-2"><span class="text-rose-600">▸</span><span><strong>알림 없음</strong> — 시트를 안 열면 끝</span></li>
+        <li class="flex gap-2"><span class="text-rose-600">▸</span><span><strong>U수식이 코에르창고만 봄</strong> (쿠팡재고 미반영)</span></li>
+        <li class="flex gap-2"><span class="text-rose-600">▸</span><span><strong>휴무일 미연동</strong> — 춘절 끼면 D-day 부정확</span></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 5. 이슈 상세 -->
+<section class="max-w-6xl mx-auto px-6 py-12">
+  <h2 class="text-2xl font-bold mb-2">⑤ 이슈 9가지 (심각도별)</h2>
+  <p class="text-slate-500 mb-6">발주 누락·오발주를 일으키는 구체적 원인</p>
+
+  <div class="space-y-3">
+    <div class="severity-high rounded-xl p-4">
+      <div class="flex items-start gap-4">
+        <span class="step-num bg-rose-600">1</span>
+        <div class="flex-1">
+          <h4 class="font-bold">시각적 우선순위 부재</h4>
+          <p class="text-sm text-slate-700 mt-1">983행 단일 시트에서 시급 SKU가 묻힘. "오늘 발주" 한 줄로 보여주는 뷰 없음 → <strong>누락 1번 원인</strong></p>
+        </div>
+        <span class="text-xs bg-rose-600 text-white px-2 py-1 rounded">심각</span>
+      </div>
+    </div>
+
+    <div class="severity-high rounded-xl p-4">
+      <div class="flex items-start gap-4">
+        <span class="step-num bg-rose-600">2</span>
+        <div class="flex-1">
+          <h4 class="font-bold">체크박스 수동 의존</h4>
+          <p class="text-sm text-slate-700 mt-1">U열 체크를 사람이 매번 켜야 함. 자동 추천(D-day≤0 자동 체크) 없음</p>
+        </div>
+        <span class="text-xs bg-rose-600 text-white px-2 py-1 rounded">심각</span>
+      </div>
+    </div>
+
+    <div class="severity-high rounded-xl p-4">
+      <div class="flex items-start gap-4">
+        <span class="step-num bg-rose-600">3</span>
+        <div class="flex-1">
+          <h4 class="font-bold">알림 시스템 부재</h4>
+          <p class="text-sm text-slate-700 mt-1">D-day 0 미만 SKU를 슬랙/이메일로 푸시하는 트리거 없음. 담당자가 시트 안 열면 끝</p>
+        </div>
+        <span class="text-xs bg-rose-600 text-white px-2 py-1 rounded">심각</span>
+      </div>
+    </div>
+
+    <div class="severity-mid rounded-xl p-4">
+      <div class="flex items-start gap-4">
+        <span class="step-num bg-amber-600">4</span>
+        <div class="flex-1">
+          <h4 class="font-bold">판매가능일수가 코에르 창고재고만 사용</h4>
+          <p class="text-sm text-slate-700 mt-1">U = (C − Q) / P. 쿠팡 D 재고 무시. → 쿠팡FBI 잔량이 많아도 D-day가 빨리 떨어져 <strong>과발주</strong></p>
+        </div>
+        <span class="text-xs bg-amber-600 text-white px-2 py-1 rounded">중간</span>
+      </div>
+    </div>
+
+    <div class="severity-mid rounded-xl p-4">
+      <div class="flex items-start gap-4">
+        <span class="step-num bg-amber-600">5</span>
+        <div class="flex-1">
+          <h4 class="font-bold">추가수량(Q) 만료일 없음</h4>
+          <p class="text-sm text-slate-700 mt-1">프로모션·대량판매 1회성 이벤트가 끝나도 Q값이 남으면 LP·발주량 모두 왜곡</p>
+        </div>
+        <span class="text-xs bg-amber-600 text-white px-2 py-1 rounded">중간</span>
+      </div>
+    </div>
+
+    <div class="severity-mid rounded-xl p-4">
+      <div class="flex items-start gap-4">
+        <span class="step-num bg-amber-600">6</span>
+        <div class="flex-1">
+          <h4 class="font-bold">생산기간이 거의 모든 SKU 34일로 동일</h4>
+          <p class="text-sm text-slate-700 mt-1">실제 업체별 리드타임 편차 미반영. 납기 지연 시 결품 위험</p>
+        </div>
+        <span class="text-xs bg-amber-600 text-white px-2 py-1 rounded">중간</span>
+      </div>
+    </div>
+
+    <div class="severity-mid rounded-xl p-4">
+      <div class="flex items-start gap-4">
+        <span class="step-num bg-amber-600">7</span>
+        <div class="flex-1">
+          <h4 class="font-bold">1일 평균이 최근 1개월만 본다</h4>
+          <p class="text-sm text-slate-700 mt-1">시즌성·트렌드 반영 안 됨. 신상품은 평균이 무의미할 정도로 낮음 → 결품 누적</p>
+        </div>
+        <span class="text-xs bg-amber-600 text-white px-2 py-1 rounded">중간</span>
+      </div>
+    </div>
+
+    <div class="severity-low rounded-xl p-4">
+      <div class="flex items-start gap-4">
+        <span class="step-num bg-blue-600">8</span>
+        <div class="flex-1">
+          <h4 class="font-bold">휴무일 탭이 산식과 미연동</h4>
+          <p class="text-sm text-slate-700 mt-1">데이터는 있는데 R 산식의 생산기간에 휴무일 가산되는 로직이 안 보임</p>
+        </div>
+        <span class="text-xs bg-blue-600 text-white px-2 py-1 rounded">낮음</span>
+      </div>
+    </div>
+
+    <div class="severity-low rounded-xl p-4">
+      <div class="flex items-start gap-4">
+        <span class="step-num bg-blue-600">9</span>
+        <div class="flex-1">
+          <h4 class="font-bold">데이터 검증/경고 셀 없음</h4>
+          <p class="text-sm text-slate-700 mt-1">MOQ 미달, 박스 미달, 미니멈 위반 등을 빨간 경고로 표시하는 로직 부재</p>
+        </div>
+        <span class="text-xs bg-blue-600 text-white px-2 py-1 rounded">낮음</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 6. 개선 로드맵 -->
+<section class="max-w-6xl mx-auto px-6 py-12">
+  <h2 class="text-2xl font-bold mb-2">⑥ 개선 로드맵</h2>
+  <p class="text-slate-500 mb-6">2단계로 진행</p>
+
+  <div class="grid md:grid-cols-2 gap-6">
+    <div class="bg-gradient-to-br from-indigo-500 to-purple-600 text-white rounded-2xl p-6 card-shadow">
+      <div class="flex items-center gap-3 mb-4">
+        <span class="step-num bg-white text-indigo-600">1</span>
+        <h3 class="text-xl font-bold">시트 재구성</h3>
+      </div>
+      <ul class="space-y-2 text-sm">
+        <li class="flex gap-2">▸ "오늘 발주" 자동 필터 뷰 (D-day≤임계값)</li>
+        <li class="flex gap-2">▸ U수식 보정 (쿠팡재고 옵션 토글)</li>
+        <li class="flex gap-2">▸ 추가수량 Q에 만료일 컬럼 추가</li>
+        <li class="flex gap-2">▸ 자동 체크 로직 (D-day 기반)</li>
+        <li class="flex gap-2">▸ 휴무일 반영 (영업일 + 가산)</li>
+        <li class="flex gap-2">▸ 시즌성 보정 (1·3·12개월 가중평균)</li>
+        <li class="flex gap-2">▸ 검증 셀 (MOQ·박스·미니멈 경고)</li>
+      </ul>
+    </div>
+
+    <div class="bg-gradient-to-br from-emerald-500 to-teal-600 text-white rounded-2xl p-6 card-shadow">
+      <div class="flex items-center gap-3 mb-4">
+        <span class="step-num bg-white text-emerald-600">2</span>
+        <h3 class="text-xl font-bold">외부 가시화</h3>
+      </div>
+      <ul class="space-y-2 text-sm">
+        <li class="flex gap-2">▸ 슬랙/카톡 알림 봇 (매일 9시 발주 푸시)</li>
+        <li class="flex gap-2">▸ 모바일 친화 대시보드</li>
+        <li class="flex gap-2">▸ 발주서 자동 생성 (PDF/메일)</li>
+        <li class="flex gap-2">▸ 발주 이력 트래킹/리포트</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 결론 -->
+<section class="max-w-6xl mx-auto px-6 py-12">
+  <div class="bg-slate-900 text-white rounded-2xl p-8 card-shadow">
+    <h2 class="text-2xl font-bold mb-4">💡 결론</h2>
+    <div class="grid md:grid-cols-3 gap-6">
+      <div>
+        <div class="text-emerald-400 text-sm font-bold mb-2">SUM</div>
+        <p class="text-sm">산식 자체는 합리적이고 정교함. 안전재고 공식·MOQ·박스·미니멈 다 반영.</p>
+      </div>
+      <div>
+        <div class="text-rose-400 text-sm font-bold mb-2">PROBLEM</div>
+        <p class="text-sm">하지만 <strong>사람이 깜빡할 여지</strong>가 너무 많음. 체크박스·시각우선순위·알림 부재가 누락 원인.</p>
+      </div>
+      <div>
+        <div class="text-indigo-400 text-sm font-bold mb-2">NEXT</div>
+        <p class="text-sm">자동 체크 + 알림 봇부터 시작 → 효과 즉발. 그 다음 재고 정의 개선 → 외부 대시보드.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="text-center py-8 text-sm text-slate-400">
+  코에르 발주 시스템 분석 · 2026.04.26
+</footer>
+
+</body>
+</html>
